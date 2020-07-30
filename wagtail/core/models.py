@@ -2341,18 +2341,20 @@ class PagePermissionTester:
         self.page_is_root = page.depth == 1  # Equivalent to page.is_root()
 
         if self.user.is_active and not self.user.is_superuser:
-            self.permissions = set(
-                perm.permission_type for perm in user_perms.permissions
-                if self.page.path.startswith(perm.page.path)
-            )
+            self.permissions = {perm.permission_type for perm in user_perms.permissions
+                        if self.page.path.startswith(perm.page.path)}
 
     def user_has_lock(self):
         return self.page.locked_by_id == self.user.pk
 
     def page_locked(self):
-        if self.page.current_workflow_task:
-            if self.page.current_workflow_task.page_locked_for_user(self.page, self.user):
-                return True
+        if (
+            self.page.current_workflow_task
+            and self.page.current_workflow_task.page_locked_for_user(
+                self.page, self.user
+            )
+        ):
+            return True
 
         if not self.page.locked:
             # Page is not locked
@@ -2389,11 +2391,12 @@ class PagePermissionTester:
         if 'add' in self.permissions and self.page.owner_id == self.user.pk:
             return True
 
-        if self.page.current_workflow_task:
-            if self.page.current_workflow_task.user_can_access_editor(self.page, self.user):
-                return True
-
-        return False
+        return bool(
+            self.page.current_workflow_task
+            and self.page.current_workflow_task.user_can_access_editor(
+                self.page, self.user
+            )
+        )
 
     def can_delete(self, ignore_bulk=False):
         if not self.user.is_active:
@@ -2468,10 +2471,7 @@ class PagePermissionTester:
         if self.page.current_workflow_task:
             return self.page.current_workflow_task.user_can_lock(self.page, self.user)
 
-        if 'lock' in self.permissions:
-            return True
-
-        return False
+        return 'lock' in self.permissions
 
     def can_unlock(self):
         if self.user.is_superuser:
@@ -2483,10 +2483,7 @@ class PagePermissionTester:
         if self.page.current_workflow_task:
             return self.page.current_workflow_task.user_can_unlock(self.page, self.user)
 
-        if 'unlock' in self.permissions:
-            return True
-
-        return False
+        return 'unlock' in self.permissions
 
     def can_publish_subpage(self):
         """
@@ -2580,10 +2577,7 @@ class PagePermissionTester:
             return False
 
         # we always need at least add permission in the target
-        if 'add' not in destination_perms.permissions:
-            return False
-
-        return True
+        return 'add' in destination_perms.permissions
 
     def can_view_revisions(self):
         return not self.page_is_root
@@ -2621,7 +2615,9 @@ class BaseViewRestriction(models.Model):
             if not request.user.is_superuser:
                 current_user_groups = request.user.groups.all()
 
-                if not any(group in current_user_groups for group in self.groups.all()):
+                if all(
+                    group not in current_user_groups for group in self.groups.all()
+                ):
                     return False
 
         return True
@@ -2652,10 +2648,10 @@ class BaseViewRestriction(models.Model):
         :param user: the user add/updating the view restriction
         :param specific_instance: the specific model instance the restriction applies to
         """
-        is_new = self.id is None
         super().save(**kwargs)
 
         if specific_instance:
+            is_new = self.id is None
             PageLogEntry.objects.log_action(
                 instance=specific_instance,
                 action='wagtail.view_restriction.create' if is_new else 'wagtail.view_restriction.edit',
@@ -3279,10 +3275,10 @@ class WorkflowState(models.Model):
                     # not STATUS_IN_PROGRESS), move to the next task
                     self.current_task_state = next_task.specific.start(self, user=user)
                     self.save()
-                    # if task has auto-approved, update the workflow again
-                    if self.current_task_state.status != self.current_task_state.STATUS_IN_PROGRESS:
-                        self.update(user=user)
-                # otherwise, continue on the current task
+                # if task has auto-approved, update the workflow again
+                if self.current_task_state.status != self.current_task_state.STATUS_IN_PROGRESS:
+                    self.update(user=user)
+                        # otherwise, continue on the current task
             else:
                 # if there is no uncompleted task, finish the workflow.
                 self.finish(user=user)

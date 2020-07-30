@@ -156,8 +156,7 @@ class Edit(EditView):
         pages = Page.objects.filter(workflowpage__workflow=self.get_object())
         pages.paginator = Paginator(pages, self.MAX_PAGES)
         page_number = int(self.request.GET.get('p', 1))
-        paginated_pages = pages.paginator.page(page_number)
-        return paginated_pages
+        return pages.paginator.page(page_number)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -542,11 +541,7 @@ def task_chooser(request):
     ]
     task_type_choices.sort(key=lambda task_type: task_type[1].lower())
 
-    if create_model:
-        createform_class = get_task_form_class(create_model)
-    else:
-        createform_class = None
-
+    createform_class = get_task_form_class(create_model) if create_model else None
     q = None
     if 'q' in request.GET or 'p' in request.GET or 'task_type' in request.GET:
         searchform = TaskChooserSearchForm(request.GET, task_type_choices=task_type_choices)

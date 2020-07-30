@@ -9,9 +9,7 @@ def ancestor_of_q(page):
         page.path[0:pos]
         for pos in range(0, len(page.path) + 1, page.steplen)[1:]
     ]
-    q = Q(path__in=paths)
-
-    return q
+    return Q(path__in=paths)
 
 
 def create_default_workflows(apps, schema_editor):

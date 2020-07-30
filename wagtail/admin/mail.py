@@ -340,9 +340,10 @@ class BaseGroupApprovalTaskStateEmailNotifier(EmailNotificationMixin, Notifier):
         super().__init__((TaskState,))
 
     def can_handle(self, instance, **kwargs):
-        if super().can_handle(instance, **kwargs) and isinstance(instance.task.specific, GroupApprovalTask):
-            return True
-        return False
+        return bool(
+            super().can_handle(instance, **kwargs)
+            and isinstance(instance.task.specific, GroupApprovalTask)
+        )
 
     def get_context(self, task_state, **kwargs):
         context = super().get_context(task_state, **kwargs)

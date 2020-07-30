@@ -143,14 +143,15 @@ class RestartWorkflowMenuItem(ActionMenuItem):
     icon_name = 'login'
 
     def is_shown(self, request, context):
-        if not getattr(settings, 'WAGTAIL_MODERATION_ENABLED', True):
+        if (
+            not getattr(settings, 'WAGTAIL_MODERATION_ENABLED', True)
+            or context['view'] != 'edit'
+        ):
             return False
-        elif context['view'] == 'edit':
+        else:
             workflow_state = context['page'].current_workflow_state
             permissions = context['user_page_permissions'].for_page(context['page'])
             return permissions.can_submit_for_moderation() and not permissions.page_locked() and workflow_state and workflow_state.user_can_cancel(request.user)
-        else:
-            return False
 
 
 class CancelWorkflowMenuItem(ActionMenuItem):
@@ -307,8 +308,8 @@ class PageActionMenu:
         page = self.context.get('page')
         if page:
             task = page.current_workflow_task
-            is_final_task = page.current_workflow_state and page.current_workflow_state.is_at_final_task
             if task:
+                is_final_task = page.current_workflow_state and page.current_workflow_state.is_at_final_task
                 actions = task.get_actions(page, request.user)
                 workflow_menu_items = []
                 for name, label, launch_modal in actions:
